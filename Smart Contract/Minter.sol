@@ -2,27 +2,31 @@
 pragma solidity ^0.8.0;
 
 contract Coin {
-    // Public variables for minter address and balances mapping
+    // The keyword "public" makes those variables
+    // readable from outside.
     address public minter;
-    mapping(address => uint256) public balances;
+    mapping (address => uint) public balances;
 
-    // Event to log transfers
-    event Sent(address indexed from, address indexed to, uint256 amount);
+    // Events allow light clients to react on
+    // changes efficiently.
+    event Sent(address from, address to, uint amount);
 
-    // Constructor to set the minter as the deployer
-    constructor() {
+    // This is the constructor whose code is
+    // run only when the contract is created.
+
+        constructor() {
         minter = msg.sender;
     }
 
-    // Mint new coins, restricted to minter
-    function mint(address receiver, uint256 amount) public {
-        require(msg.sender == minter, "Only minter can mint coins");
+
+
+    function mint(address receiver, uint amount) public  {
+        if (msg.sender != minter) return;
         balances[receiver] += amount;
     }
 
-    // Send coins from sender to receiver
-    function send(address receiver, uint256 amount) public {
-        require(balances[msg.sender] >= amount, "Insufficient balance");
+    function send(address receiver, uint amount) public {
+        if (balances[msg.sender] < amount) return;
         balances[msg.sender] -= amount;
         balances[receiver] += amount;
         emit Sent(msg.sender, receiver, amount);
