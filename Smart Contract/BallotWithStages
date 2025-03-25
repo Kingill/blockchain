@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract Ballot {
+    // Struct definitions
+    struct Voter {
+        uint256 weight;
+        bool voted;
+        uint8 vote;
+    }
+
+    struct Proposal {
+        uint256 voteCount;
+    }
+
+    // Enum for voting stages
+    enum Stage { Init, Reg, Vote, Done }
+    Stage public stage = Stage.Init;
+
+    // State variables
+    address public immutable chairperson;
+    mapping(address => Voter) public voters;
+    Proposal[] public proposals;
+    uint256 public startTime;
+
+    // Constructor to initialize the ballot
+    constructor(uint8 _numProposals) {
+        chairperson = msg.sender;
+        voters[chairperson].weight = 2; // Chairperson gets weight 2
+        proposals = new Proposal[](_numProposals); // Modern array initialization
+        stage = Stage.Reg;
+        startTime = block.timestamp; // Replaced 'now' with 'block.timestamp'
+    }
+
+    // Register a voter, restricted to chairperson during Reg stage
+    function register(address toVoter) external {
+        require(stage == Stage.Reg, "Registration stage has ended");
+        require(msg.sender == chairperson, "Only chairperson can register voters");
+        require(!voters[toVoter].voted, "Voter has already voted");
+        require(voters[toVoter].weight == 0, "Voter already registered");
+
+        voters[toVoter].weight = 1;
+        voters[toVoter].voted = false;
+
+        if (block.timestamp > (startTime + 10 seconds)) {
+            stage = Stage.Vote;
+            startTime = block.timestamp;
+        }
+    }
+
+    // Cast a vote for a proposal during Vote stage
+    function vote(uint8 toProposal) external {
+        require(stage == Stage.Vote, "Voting stage is not active");
+        Voter storage sender = voters[msg.sender];
+        require(!sender.voted, "Already voted");
+        require(toProposal < proposals.length, "Invalid proposal index");
+
+        sender.voted = true;
+        sender.vote = toProposal;
+        proposals[toProposal].voteCount += sender.weight;
+
+        if (block.timestamp > (startTime + 10 seconds)) {
+            stage = Stage.Done;
+        }
+    }
+
+    // Determine the winning proposal during Done stage
+    function winningProposal() external view returns (uint8) {
+        require(stage == Stage.Done, "Voting not yet completed");
+        uint256 winningVoteCount = 0;
+        uint8 winningProposalIndex = 0;
+
+        for (uint8 prop = 0; prop < proposals.length; prop++) {
+            if (proposals[prop].voteCount > winningVoteCount) {
+                winningVoteCount = proposals[prop].voteCount;
+                winningProposalIndex = prop;
+            }
+        }
+        return winningProposalIndex;
+    }
+}
