@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.0;
 
 contract Bidder {
-    string public name;
-    uint256 public bidAmount = 20000;
-    bool public eligible;
-    uint256 public constant minBid = 1000; // Added 'public' for visibility
-
-    // Optional: Constructor to initialize the name
-    constructor(string memory _name) {
-        name = _name;
+    
+     string public name = "Buffalo";
+     uint public bidAmount;
+     bool public  eligible;
+     uint constant minBid = 1000;
+     
+     function setName(string memory nm) public {
+        name = nm;
+        
     }
-
-    // Optional: Function to set eligibility (since original code had no setters)
-    function setEligibility(bool _eligible) public {
-        eligible = _eligible;
+    
+    function setBidAmount(uint x) public {
+       bidAmount  = x;
     }
+  
+    function determineEligibility() public {
+        if (bidAmount >= minBid ) eligible = true;
+        else eligible = false;
 
-    // Optional: Function to update bid amount with a minimum check
-    function setBidAmount(uint256 _bidAmount) public {
-        require(_bidAmount >= minBid, "Bid amount must be at least the minimum bid");
-        bidAmount = _bidAmount;
+        
     }
 }
