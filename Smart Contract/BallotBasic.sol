@@ -1,69 +1,51 @@
-pragma solidity ^0.8.24;
-
+pragma solidity ^0.4.0;
 contract Ballot {
-    // Struct definitions
+
     struct Voter {
-        uint256 weight;  // Voting power
-        bool voted;      // Tracks if voter has voted
-        uint8 vote;      // Index of voted proposal
-        // address delegate; (Commented out, kept commented)
+        uint weight;
+        bool voted;
+        uint8 vote;
+       // address delegate;
     }
-
     struct Proposal {
-        uint256 voteCount;  // Total votes for this proposal
+        uint voteCount; // could add other data about proposal
     }
 
-    // State variables
-    address public immutable chairperson;  // Deployer, immutable for gas savings
-    mapping(address => Voter) public voters;  // Voter details by address
-    Proposal[] public proposals;  // Array of proposals
+    address chairperson;
+    mapping(address => Voter) voters;
+    Proposal[] proposals;
+    
 
-    // Constructor to initialize the ballot
-    constructor(uint8 _numProposals) {
-        require(_numProposals > 0, "Number of proposals must be greater than zero");
+    /// Create a new ballot with $(_numProposals) different proposals.
+    function Ballot(uint8 _numProposals) public {
         chairperson = msg.sender;
-        voters[chairperson].weight = 2; // Chairperson gets double voting power
-//        proposals = new Proposal[](_numProposals); // Initialize proposals array
-    for (uint8 i = 0; i < _numProposals; i++) {
-        proposals[i].voteCount = 0;
-    }
+        voters[chairperson].weight = 2;
+        proposals.length = _numProposals; 
     }
 
-    // Register a voter, restricted to chairperson
-    function register(address toVoter) external {
-        require(msg.sender == chairperson, "Only chairperson can register voters");
-        require(toVoter != address(0), "Cannot register zero address");
-        require(!voters[toVoter].voted, "Voter has already voted");
-        require(voters[toVoter].weight == 0, "Voter already registered");
-
+    /// Give $(toVoter) the right to vote on this ballot.
+    /// May only be called by $(chairperson).
+    function register(address toVoter) public {
+        if (msg.sender != chairperson || voters[toVoter].voted) return;
         voters[toVoter].weight = 1;
         voters[toVoter].voted = false;
     }
 
-    // Cast a vote for a proposal
-    function vote(uint8 toProposal) external {
+    /// Give a single vote to proposal $(toProposal).
+    function vote(uint8 toProposal) public {
         Voter storage sender = voters[msg.sender];
-        require(sender.weight > 0, "Sender not registered to vote");
-        require(!sender.voted, "Already voted");
-        require(toProposal < proposals.length, "Invalid proposal index");
-
+        if (sender.voted || toProposal >= proposals.length) return;
         sender.voted = true;
         sender.vote = toProposal;
         proposals[toProposal].voteCount += sender.weight;
     }
 
-    // Determine the winning proposal
-    function winningProposal() external view returns (uint8) {
-        require(proposals.length > 0, "No proposals available");
+    function winningProposal() public constant returns (uint8 _winningProposal) {
         uint256 winningVoteCount = 0;
-        uint8 winningProposalIndex = 0;
-
-        for (uint8 prop = 0; prop < proposals.length; prop++) {
+        for (uint8 prop = 0; prop < proposals.length; prop++)
             if (proposals[prop].voteCount > winningVoteCount) {
                 winningVoteCount = proposals[prop].voteCount;
-                winningProposalIndex = prop;
+                _winningProposal = prop;
             }
-        }
-        return winningProposalIndex;
     }
-} 
+}
