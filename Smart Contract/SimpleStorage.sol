@@ -1,26 +1,24 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
+pragma solidity ^0.4.0; 
+// Imagine a big integer that the whole world could share
 contract SimpleStorage {
-    uint256 storedData; // Using uint256 instead of uint for clarity
+    uint storedData;
 
-    // Set a value
-    function set(uint256 x) public {
+    function set(uint x) public {
         storedData = x;
     }
 
-    // Get the stored value
-    function get() public view returns (uint256) {
+    function get() constant public returns (uint)  {
         return storedData;
     }
     
-    // Increment the stored value
-    function increment(uint256 n) public {
-        storedData = storedData + n; // or storedData += n;
+    function increment (uint n) public {
+        storedData = storedData + n;
+        return;
     }
     
-    // Decrement the stored value
-    function decrement(uint256 n) public {
-        storedData = storedData - n; // or storedData -= n;
+    function decrement (uint n) public {
+        storedData = storedData - n;
+        return;
     }
+    
 }
