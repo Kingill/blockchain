@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.4.0;
 
 contract Coin {
     // The keyword "public" makes those variables
@@ -13,12 +12,9 @@ contract Coin {
 
     // This is the constructor whose code is
     // run only when the contract is created.
-
-        constructor() {
+    function Coin() public{
         minter = msg.sender;
     }
-
-
 
     function mint(address receiver, uint amount) public  {
         if (msg.sender != minter) return;
@@ -29,6 +25,6 @@ contract Coin {
         if (balances[msg.sender] < amount) return;
         balances[msg.sender] -= amount;
         balances[receiver] += amount;
-        emit Sent(msg.sender, receiver, amount);
+        Sent(msg.sender, receiver, amount);
     }
 }
