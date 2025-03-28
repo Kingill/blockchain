@@ -1,89 +1,72 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
-
+pragma solidity ^0.4.0;
 contract Ballot {
-    // Struct definitions
+
     struct Voter {
-        uint256 weight;
+        uint weight;
         bool voted;
         uint8 vote;
-        address delegate;  // Included from original, though unused
+        //address delegate;
     }
-
     struct Proposal {
-        uint256 voteCount;
+        uint voteCount;
     }
-
-    // Enum for voting stages
-    enum Stage { Init, Reg, Vote, Done }
+    enum Stage {Init,Reg, Vote, Done}
     Stage public stage = Stage.Init;
+    
+    address chairperson;
+    mapping(address => Voter) voters;
+    Proposal[] proposals;
 
-    // State variables
-    address public immutable chairperson;
-    mapping(address => Voter) public voters;
-    Proposal[] public proposals;
-    uint256 public startTime;
-
-    // Event for voting completion
-    event VotingCompleted();
-
-    // Modifier to restrict functions to specific stages
-    modifier validStage(Stage reqStage) {
-        require(stage == reqStage, "Function not allowed at current stage");
-        _;
+    event votingCompleted();
+    
+    uint startTime;
+    //modifiers
+   modifier validStage(Stage reqStage)
+    { require(stage == reqStage);
+      _;
     }
 
-    // Constructor to initialize the ballot
-    constructor(uint8 _numProposals) {
+
+    /// Create a new ballot with $(_numProposals) different proposals.
+    function Ballot(uint8 _numProposals) public  {
         chairperson = msg.sender;
-        voters[chairperson].weight = 2; // Chairperson gets weight 2
-        proposals = new Proposal[](_numProposals); // Modern array initialization
+        voters[chairperson].weight = 2; // weight is 2 for testing purposes
+        proposals.length = _numProposals;
         stage = Stage.Reg;
-        startTime = block.timestamp; // Replaced 'now' with 'block.timestamp'
+        startTime = now;
     }
 
-    // Register a voter, restricted to chairperson during Reg stage
-    function register(address toVoter) external validStage(Stage.Reg) {
-        require(msg.sender == chairperson, "Only chairperson can register voters");
-        require(!voters[toVoter].voted, "Voter has already voted");
-        require(voters[toVoter].weight == 0, "Voter already registered");
-
+    /// Give $(toVoter) the right to vote on this ballot.
+    /// May only be called by $(chairperson).
+    function register(address toVoter) public validStage(Stage.Reg) {
+        //if (stage != Stage.Reg) {return;}
+        if (msg.sender != chairperson || voters[toVoter].voted) return;
         voters[toVoter].weight = 1;
         voters[toVoter].voted = false;
-
-        if (block.timestamp > (startTime + 30 seconds)) {
-            stage = Stage.Vote;
-        }
+        if (now > (startTime+ 30 seconds)) {stage = Stage.Vote; }        
     }
 
-    // Cast a vote for a proposal during Vote stage
-    function vote(uint8 toProposal) external validStage(Stage.Vote) {
+    /// Give a single vote to proposal $(toProposal).
+    function vote(uint8 toProposal) public validStage(Stage.Vote)  {
+       // if (stage != Stage.Vote) {return;}
         Voter storage sender = voters[msg.sender];
-        require(!sender.voted, "Already voted");
-        require(toProposal < proposals.length, "Invalid proposal index");
-
+        if (sender.voted || toProposal >= proposals.length) return;
         sender.voted = true;
-        sender.vote = toProposal;
+        sender.vote = toProposal;   
         proposals[toProposal].voteCount += sender.weight;
-
-        if (block.timestamp > (startTime + 30 seconds)) {
-            stage = Stage.Done;
-            emit VotingCompleted(); // Modern event emission syntax
-        }
+        if (now > (startTime+ 30 seconds)) {stage = Stage.Done; votingCompleted();}        
+        
     }
 
-    // Determine the winning proposal during Done stage
-    function winningProposal() external view validStage(Stage.Done) returns (uint8) {
+    function winningProposal() public validStage(Stage.Done) constant returns (uint8 _winningProposal) {
+       //if(stage != Stage.Done) {return;}
         uint256 winningVoteCount = 0;
-        uint8 winningProposalIndex = 0;
-
-        for (uint8 prop = 0; prop < proposals.length; prop++) {
+        for (uint8 prop = 0; prop < proposals.length; prop++)
             if (proposals[prop].voteCount > winningVoteCount) {
                 winningVoteCount = proposals[prop].voteCount;
-                winningProposalIndex = prop;
+                _winningProposal = prop;
             }
-        }
-        require(winningVoteCount > 0, "No votes cast");
-        return winningProposalIndex;
+       assert (winningVoteCount > 0);
+
     }
 }
