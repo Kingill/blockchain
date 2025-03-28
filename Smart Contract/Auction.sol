@@ -29,7 +29,9 @@ contract Auction {
 
     function Auction() public payable {
         // Part 1 Task 1: Initialize beneficiary with address of smart contract’s owner
+        // ** Start code here. 1 line approximately. **/
         beneficiary = msg.sender;
+        //** End code here. **/
 
         uint[] memory emptyArray;
         items[0] = Item({itemId: 0, itemTokens: emptyArray});
@@ -50,7 +52,6 @@ contract Auction {
 
         // ** Start code here. 1 line approximately. **/
         bidders[bidderCount].addr = msg.sender;
-
         //** End code here. **
         
         bidders[bidderCount].remainingTokens = 5; // only 5 tokens
@@ -102,7 +103,7 @@ contract Auction {
     //Hint : Use require to validate if "msg.sender" is equal to the "beneficiary".
     modifier onlyOwner {
         // ** Start code here. 2 lines approximately. **
-                require(msg.sender == beneficiary);
+        require(msg.sender == beneficiary);
         _;
         //** End code here. **
     }
@@ -128,8 +129,7 @@ contract Auction {
             you need to assign the address of the person obtained above to winners[id] */
 
             // ** Start coding here *** 1 line approximately.
-                            winners[id] = bidders[winnerId].addr;
-                    
+            winners[id] = bidders[winnerId].addr;
             //** end code here*
                 
             }
