@@ -77,9 +77,9 @@ contract Auction {
         */
         
         // ** Start code here. 2 lines approximately. **/
-        if (tokenDetails[msg.sender].remainingTokens < _count) return;
-        if (tokenDetails[msg.sender].remainingTokens == 0) return;
-        if (_itemId > 2) return;
+        require(tokenDetails[msg.sender].remainingTokens >= _count);
+        require(tokenDetails[msg.sender].remainingTokens > 0);
+        require(_itemId <= 2);
         //** End code here. **
         
         /*Part 1 Task 5. Decrement the remainingTokens by the number of tokens bid and store the value in balance variable.
