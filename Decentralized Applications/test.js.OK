@@ -1,0 +1,105 @@
+let Auction = artifacts.require("./Auction.sol");
+
+let auctionInstance;
+
+
+contract('AuctionContract', function (accounts) {
+  // accounts[0] is the default account (owner/beneficiary)
+	
+ beforeEach(async () => {
+    auctionInstance = await Auction.new({ from: accounts[0] });
+  });
+
+  // Test case 1
+  it("Contract deployment", function() {
+    return Auction.deployed().then(function (instance) {
+      auctionInstance = instance;
+      assert(auctionInstance !== undefined, 'Auction contract should be defined');
+    });
+  });
+
+  // Sample Test Case
+  it("Should set bidders", function() {
+    return auctionInstance.register({ from: accounts[1] }).then(function(result) {
+      return auctionInstance.getPersonDetails(0);
+    }).then(function(result) {
+      assert.equal(result[2], accounts[1], 'bidder address set');
+    });
+  });
+
+  // Test Case for checking if the bid is more than the token amount
+  it("Should NOT allow to bid more than remaining tokens", function() {
+    return auctionInstance.register({ from: accounts[1] }).then(function() {
+      // TASK 1: Call bid method with itemId=0, count=6 from accounts[1]
+      return auctionInstance.bid(0, 6, { from: accounts[1] });
+    }).then(function (result) {
+      throw("Failed to check remaining tokens less than count");
+    }).catch(function (e) {
+      var a = e.toString();
+      if (e === "Failed to check remaining tokens less than count") {
+        // TASK 2: Assert false since the condition should have reverted
+        assert(false, "Bid should have reverted due to insufficient tokens");
+      } else {
+        // TASK 3: Assert true since the revert occurred as expected
+        assert(true, "Successfully reverted due to insufficient tokens");
+      }
+    });
+  });
+
+  // Modifier Checking
+  it("Should NOT allow non owner to reveal winners", function() {
+    // TASK 4: Call revealWinners from account 1 (non-owner)
+    return auctionInstance.revealWinners({ from: accounts[1] })
+    .then(function (instance) {
+      throw("Failed to check owner in reveal winners");
+    }).catch(function (e) {
+      if (e === "Failed to check owner in reveal winners") {
+        // TASK 5: Assert false since the condition should have reverted
+        assert(false, "Reveal winners should have reverted for non-owner");
+      } else {
+        // TASK 6: Assert true since the revert occurred as expected
+        assert(true, "Successfully reverted due to non-owner call");
+      }
+    });
+  });
+
+  it("Should set winners", function() {
+    // TASK 7: Call register from account 2
+    return auctionInstance.register({ from: accounts[2] })
+    .then(function(result) {
+      // TASK 8: Call register from account 3
+      return auctionInstance.register({ from: accounts[3] });
+    }).then(function() {
+      // TASK 9: Call register from account 4
+      return auctionInstance.register({ from: accounts[4] });
+    }).then(function() {
+      // TASK 10: Call bid from accounts[2] with itemId=0, count=5
+      return auctionInstance.bid(0, 5, { from: accounts[2] });
+    }).then(function() {
+      // TASK 11: Call bid from accounts[3] with itemId=1, count=5
+      return auctionInstance.bid(1, 5, { from: accounts[3] });
+    }).then(function() {
+      // TASK 12: Call bid from accounts[4] with itemId=2, count=5
+      return auctionInstance.bid(2, 5, { from: accounts[4] });
+    }).then(function() {
+      // TASK 13: Call revealWinners from accounts[0] (owner)
+      return auctionInstance.revealWinners({ from: accounts[0] });
+    }).then(function() {
+      // TASK 14: Call winners function to get winner of item id 0
+      return auctionInstance.winners(0, { from: accounts[0] });
+    }).then(function(result) {
+      // TASK 15: Assert winner is not default address
+      assert.notEqual(result, '0x0000000000000000000000000000000000000000', 'Winner of item 0 should not be default address');
+      // TASK 16: Call winners function to get winner of item id 1
+      return auctionInstance.winners(1, { from: accounts[0] });
+    }).then(function(result) {
+      // TASK 17: Assert winner is not default address
+      assert.notEqual(result, '0x0000000000000000000000000000000000000000', 'Winner of item 1 should not be default address');
+      // TASK 18: Call winners function to get winner of item id 2
+      return auctionInstance.winners(2, { from: accounts[0] });
+    }).then(function(result) {
+      // TASK 19: Assert winner is not default address
+      assert.notEqual(result, '0x0000000000000000000000000000000000000000', 'Winner of item 2 should not be default address');
+    });
+  });
+});
