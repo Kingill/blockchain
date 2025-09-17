@@ -1,0 +1,52 @@
+@version=6
+strategy("DCA Basique (Overview %)", 
+     overlay=true, 
+     pyramiding=10000, 
+     calc_on_every_tick=true, 
+     process_orders_on_close=true,
+     initial_capital=10000,        // capital de départ (à ajuster)
+     default_qty_type=strategy.fixed,
+     currency=currency.USD)
+
+// ---------- Inputs ----------
+DAILY   = "DAILY"
+WEEKLY  = "WEEKLY"
+MONTHLY = "MONTHLY"
+
+month_day  = input.int(15, minval=1, maxval=28, title="Jour du mois (pour DCA mensuel)")
+week_day   = input.int(dayofweek.monday, title="Jour de la semaine (pour DCA hebdo)", 
+              options=[dayofweek.monday, dayofweek.tuesday, dayofweek.wednesday, 
+                       dayofweek.thursday, dayofweek.friday, dayofweek.saturday, dayofweek.sunday])
+dca_period = input.string(MONTHLY, title="Périodicité DCA", options=[DAILY, WEEKLY, MONTHLY])
+dca_size   = input.float(100.0, title="Montant par achat (USD)")
+dca_long   = input.bool(true, title="Acheter (Long) ou Vendre (Short)")
+
+start_year  = input.int(2018, title="Année de début")
+start_month = input.int(1, title="Mois de début", minval=1, maxval=12)
+start_day   = input.int(1, title="Jour de début", minval=1, maxval=31)
+end_year    = input.int(2100, title="Année de fin")
+end_month   = input.int(1, title="Mois de fin", minval=1, maxval=12)
+end_day     = input.int(1, title="Jour de fin", minval=1, maxval=31)
+
+start = timestamp(start_year, start_month, start_day, 0, 0)
+end   = timestamp(end_year, end_month, end_day, 23, 59)
+
+// ---------- Détection des jours DCA ----------
+new_day    = ta.change(dayofweek) != 0
+is_buy_day = (dca_period == WEEKLY  and dayofweek == week_day) or
+             (dca_period == MONTHLY and month_day == dayofmonth) or
+             (dca_period == DAILY)
+
+trigger   = time >= start and time <= end and is_buy_day and new_day
+close_all = time > end
+
+// ---------- Entrées et sorties ----------
+if trigger
+    qty = dca_size / close
+    strategy.entry("DCA", direction = dca_long ? strategy.long : strategy.short, qty = qty)
+
+if close_all
+    strategy.close("DCA")
+
+// ---------- Visuel ----------
+plot(strategy.position_avg_price, title="Prix moyen d'entrée", color=color.orange)
