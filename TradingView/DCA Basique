@@ -12,7 +12,7 @@ dca_period = input.string(MONTHLY, title="Périodicité DCA", options=[DAILY, WE
 dca_size   = input.float(100.0, title="Montant par achat (en devise de cotation)")
 dca_long   = input.bool(true, title="Acheter (Long) ou Vendre (Short)")
 
-start_year  = input.int(2018, title="Année de début")
+start_year  = input.int(2024, title="Année de début")
 start_month = input.int(1, title="Mois de début", minval=1, maxval=12)
 start_day   = input.int(1, title="Jour de début", minval=1, maxval=31)
 end_year    = input.int(2100, title="Année de fin")
