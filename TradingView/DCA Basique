@@ -1,4 +1,4 @@
-@version=6
+//@version=6
 strategy("DCA Basique (Overview %)", 
      overlay=true, 
      pyramiding=10000, 
