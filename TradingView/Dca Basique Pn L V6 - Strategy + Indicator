@@ -1,5 +1,5 @@
 //@version=5
-strategy("DCA Basique PnL - Corrigé", overlay=true, pyramiding=10000, calc_on_every_tick=true, process_orders_on_close=true)
+strategy("DCA Basique PnL", overlay=true, pyramiding=10000, calc_on_every_tick=true, process_orders_on_close=true)
 
 // ---------- Inputs ----------
 DAILY   = "DAILY"
