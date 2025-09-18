@@ -1,5 +1,5 @@
 //@version=6
-strategy("DCA Basique PnL", overlay=true, pyramiding=10000, calc_on_every_tick=true, process_orders_on_close=true)
+strategy("DCA Basique PnL (Backtest)", overlay=true, pyramiding=10000, calc_on_every_tick=true, process_orders_on_close=true)
 
 // ---------- Inputs ----------
 DAILY   = "DAILY"
@@ -13,30 +13,28 @@ dca_size   = input.float(100.0, title="Montant par achat (en devise de cotation)
 dca_long   = input.bool(true, title="Acheter (Long) ou Vendre (Short)")
 
 start_year  = input.int(2024, title="Année de début")
-start_month = input.int(1, title="Mois de début", minval=1, maxval=12)
-start_day   = input.int(1, title="Jour de début", minval=1, maxval=31)
-end_year    = input.int(2100, title="Année de fin")
-end_month   = input.int(1, title="Mois de fin", minval=1, maxval=12)
+start_month = input.int(5, title="Mois de début", minval=1, maxval=12)
+start_day   = input.int(13, title="Jour de début", minval=1, maxval=31)
+end_year    = input.int(2025, title="Année de fin")
+end_month   = input.int(9, title="Mois de fin", minval=1, maxval=12)
 end_day     = input.int(1, title="Jour de fin", minval=1, maxval=31)
 
 start = timestamp(start_year, start_month, start_day, 0, 0)
 end   = timestamp(end_year, end_month, end_day, 23, 59)
 
 // ---------- Time / trigger ----------
-new_day   = ta.change(dayofweek) != 0                        // BOOL : vrai au premier tick du nouveau jour
-is_today  = year(timenow) == year(time) and month(timenow) == month(time) and dayofmonth(timenow) == dayofmonth(time)
+new_day   = ta.change(dayofweek) != 0    // vrai au premier tick du nouveau jour
 is_buy_day = (dca_period == WEEKLY  and dayofweek == week_day) or
              (dca_period == MONTHLY and month_day == dayofmonth) or
              (dca_period == DAILY)
 
 trigger   = time >= start and time <= end and is_buy_day and new_day
-close_all = time > end or is_today
+close_all = time > end                   // fermeture uniquement quand la période est terminée
 
 // ---------- Investissement & PnL ----------
 var float total_invested = 0.0
 
 if trigger
-    // qty en unités (contrats / lots) = montant en quote / prix
     qty = dca_size / close
     strategy.entry("DCA", direction = dca_long ? strategy.long : strategy.short, qty = qty)
     total_invested += dca_size
@@ -49,17 +47,25 @@ profit_pct     = total_invested > 0 ? (profit_value / total_invested) * 100 : na
 if close_all
     strategy.close("DCA")
 
+    // Résumé final
+    if total_invested > 0
+        finalText = "Période terminée\nInvesti : " + str.tostring(total_invested, "#.##") + "\nValeur finale : " + str.tostring(position_value, "#.##") + "\nProfit : " + str.tostring(profit_value, "#.##") + " (" + str.tostring(profit_pct, "#.##") + "%)"
+        label.new(bar_index, high, finalText, style=label.style_label_down, color=color.yellow, textcolor=color.black, size=size.small)
+
+    // reset pour ne pas cumuler d'une période à l'autre
+    total_invested := 0
+
 // ---------- Affichage ----------
 plot(strategy.position_avg_price, title="Prix moyen d'entrée", color=color.orange)
 
-// bgcolor : utiliser color.new pour gérer la transparence
-bgcol = dca_long ? (close < strategy.position_avg_price ? color.new(color.red, 85) : color.new(color.green, 85))
-                 : (close < strategy.position_avg_price ? color.new(color.green, 85) : color.new(color.red, 85))
+// Option : coloration du fond (bgcolor doit être appelé au scope global)
+show_bg = input.bool(true, "Colorier le fond selon PnL")
+bgcol = show_bg ? (dca_long ? (close < strategy.position_avg_price ? color.new(color.red, 85) : color.new(color.green, 85)) : (close < strategy.position_avg_price ? color.new(color.green, 85) : color.new(color.red, 85))) : na
 bgcolor(bgcol)
 
-// Label unique mis à jour (évite de créer des centaines de labels)
+// Label dynamique (suivi en cours de période)
 var label pnlLabel = na
-infoText = "Investi : " + str.tostring(total_invested, "#.##") + "\nValeur : " + str.tostring(position_value, "#.##") + "\nProfit : " + str.tostring(profit_value, "#.##") + (total_invested > 0 ? " (" + str.tostring(profit_pct, "#.##") + "%)" : "")
+infoText = "Investi : " + str.tostring(total_invested, "#.##") + " \nValeur : " + str.tostring(position_value, "#.##") + " \nProfit : " + str.tostring(profit_value, "#.##") + (total_invested > 0 ? " (" + str.tostring(profit_pct, "#.##") + "%)" : "")
 
 if not close_all
     if na(pnlLabel)
@@ -68,10 +74,11 @@ if not close_all
         label.set_xy(pnlLabel, bar_index, high)
         label.set_text(pnlLabel, infoText)
 else
-    // si on ferme la période, on supprime le label pour éviter affichage rémanent
     if not na(pnlLabel)
         label.delete(pnlLabel)
         pnlLabel := na
 
-// (optionnel) trace du profit net dans le panneau overlay (tu peux le désactiver si tu veux)
-plot(profit_value, title="Profit net", linewidth=2, display=display.none)
+// ---------- Panneau comparatif ----------
+plot(total_invested, title="Capital investi", color=color.blue, display=display.none)
+plot(position_value,  title="Valeur portefeuille", color=color.green, display=display.none)
+plot(profit_value,    title="Profit net", linewidth=2, display=display.none)
