@@ -1,0 +1,5 @@
+{
+"account_address": "0x...",
+  "secret_key": "METAMASK_SECRET_KEY",
+  "network": "testnet"
+}
