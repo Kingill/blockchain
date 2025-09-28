@@ -20,7 +20,7 @@ except Exception as e:
     raise
 
 # Chemins de configuration
-CONFIG_PATH = Path("examples/config.json")
+CONFIG_PATH = Path("config.json")
 PARAMS_PATH = Path("trade_params.json")
 
 # --- Fonctions de chargement ---
