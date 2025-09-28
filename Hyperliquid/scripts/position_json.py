@@ -118,7 +118,7 @@ while True:
         print("\n-------------------\n")
         
         # Modification de la question de continuation
-        cont = input("Voulez-vous executer ton trade ? (o/n) : ").lower()
+        cont = input("Voulez-vous executer le trade dans Hyperliquide ? (o/n) : ").lower()
         if cont == "o":
             # Mise à jour de la réponse pour l'exécution du bot externe
             print(f"Les paramètres du trade sont maintenant disponibles dans {OUTPUT_FILE}.")
