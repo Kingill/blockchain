@@ -6,9 +6,9 @@ Enhanced Market Maker with:
 - Position limits (MAX_POSITION)
 - PnL tracking: save fills with execution price vs mid
 - Healthcheck: alert if fills too rare
-- CSV export for post-trade analysis
+- CSV export for post-trade analysis (real-time append)
 - Configurable TICK_SIZE per coin
-- Fresh mid-price for accurate PnL calculation
+- Skip snapshot fills (ignore historical data)
 """
 import asyncio
 import csv
@@ -52,12 +52,11 @@ MIN_ORDER_NOTIONAL = 5.0
 POST_ONLY = True
 MIN_HOLD_SECONDS = 3.0
 DRY_RUN = False
-#DRY_RUN = True
 
 # Position / risk
 MAX_POSITION = 0.01
-POSITION_SKEW_FACTOR = 1.5  # more aggressive skew
-STOP_TRADING_THRESHOLD = 0.008  # stop placing new orders if |pos| > this
+POSITION_SKEW_FACTOR = 1.5
+STOP_TRADING_THRESHOLD = 0.008
 
 # Health / monitoring
 FILL_ALERT_THRESHOLD = 120
@@ -81,7 +80,6 @@ METRICS_JSON_PATH = Path("metrics.json")
 # ========================
 logging.basicConfig(
     level=logging.INFO,
-#    level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -394,15 +392,7 @@ class EnhancedMarketMaker:
                 return
 
         pos = await self.position_tracker.get_position()
-        bid_spread, ask_spread = self.compute_skewed_spreads(mid, spread_pct, pos)
-
-        buy_px = round_to_tick(mid * (1.0 - bid_spread), self.tick_size)
-        sell_px = round_to_tick(mid * (1.0 + ask_spread), self.tick_size)
-        notional = BASE_SIZE * mid
-        if notional < MIN_ORDER_NOTIONAL:
-            logger.debug(f"Notional {notional:.2f} < min {MIN_ORDER_NOTIONAL:.2f}")
-            return
-
+        
         # Kill-switch: stop trading if position is too large
         abs_pos = abs(pos)
         if abs_pos > STOP_TRADING_THRESHOLD:
@@ -410,6 +400,15 @@ class EnhancedMarketMaker:
                 f"Position {pos:.6f} exceeds stop threshold {STOP_TRADING_THRESHOLD}. "
                 f"Halting new orders (only reduce-only allowed)."
             )
+            return
+
+        bid_spread, ask_spread = self.compute_skewed_spreads(mid, spread_pct, pos)
+
+        buy_px = round_to_tick(mid * (1.0 - bid_spread), self.tick_size)
+        sell_px = round_to_tick(mid * (1.0 + ask_spread), self.tick_size)
+        notional = BASE_SIZE * mid
+        if notional < MIN_ORDER_NOTIONAL:
+            logger.debug(f"Notional {notional:.2f} < min {MIN_ORDER_NOTIONAL:.2f}")
             return
 
         can_place_buy = (pos + BASE_SIZE) <= MAX_POSITION
@@ -476,9 +475,31 @@ class EnhancedMarketMaker:
         console.clear()
         console.print(self.render_table(mid, pos_now, spread_pct, last_fill_ago))
 
+    async def append_fill_csv(self, rec: FillRecord):
+        """Append a single fill to CSV immediately (real-time)."""
+        try:
+            file_exists = FILLS_CSV_PATH.exists()
+            with open(FILLS_CSV_PATH, "a", newline="") as f:
+                fieldnames = [
+                    "timestamp", "datetime", "side", "size", "exec_price", 
+                    "mid_price", "position_after", "pnl_incremental"
+                ]
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(rec.to_dict())
+        except Exception as e:
+            logger.error(f"Failed to append fill CSV: {e}")
+
     async def handle_user_fills(self, fill: dict):
         if not isinstance(fill, dict):
             return
+        
+        # SKIP snapshot fills (historical data from past)
+        if fill.get("isSnapshot"):
+            logger.debug("Skipping snapshot fill (historical data)")
+            return
+        
         if 'side' not in fill or 'sz' not in fill or 'px' not in fill:
             return
         if fill.get("coin") != COIN:
@@ -494,7 +515,6 @@ class EnhancedMarketMaker:
         await self.position_tracker.update_from_fill(fill)
         pos_after = await self.position_tracker.get_position()
 
-        # Use the MOST RECENT mid-price from buffer (not stale last_mid)
         mid = await self.get_latest_mid()
         if mid is None:
             mid = exec_price
@@ -518,7 +538,6 @@ class EnhancedMarketMaker:
         async with self._fill_lock:
             self.fill_records.append(rec)
 
-        # Append to CSV immediately (real-time)
         await self.append_fill_csv(rec)
 
         self.metrics.fills_received += 1
@@ -580,24 +599,7 @@ class EnhancedMarketMaker:
                 logger.debug(f"Heartbeat error: {e}")
                 break
 
-    async def append_fill_csv(self, rec: FillRecord):
-        """Append a single fill to CSV immediately (real-time)."""
-        try:
-            file_exists = FILLS_CSV_PATH.exists()
-            with open(FILLS_CSV_PATH, "a", newline="") as f:
-                fieldnames = [
-                    "timestamp", "datetime", "side", "size", "exec_price", 
-                    "mid_price", "position_after", "pnl_incremental"
-                ]
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                if not file_exists:
-                    writer.writeheader()
-                writer.writerow(rec.to_dict())
-        except Exception as e:
-            logger.error(f"Failed to append fill CSV: {e}")
-
     def save_fills_csv(self, path=FILLS_CSV_PATH):
-        """Final save at shutdown (backup)."""
         if not self.fill_records:
             logger.info("No fills to export")
             return
@@ -669,12 +671,17 @@ class EnhancedMarketMaker:
                                 await self.handle_l2book(data["data"])
                             elif channel == "userFills" and data.get("data"):
                                 fills_data = data["data"]
+                                is_snapshot = fills_data.get("isSnapshot", False) if isinstance(fills_data, dict) else False
                                 if isinstance(fills_data, dict):
                                     fills = fills_data.get("fills", [])
                                 elif isinstance(fills_data, list):
                                     fills = fills_data
                                 else:
                                     fills = []
+                                # Skip entire snapshot
+                                if is_snapshot:
+                                    logger.debug(f"Skipping snapshot with {len(fills)} fills")
+                                    continue
                                 for f in fills:
                                     await self.handle_user_fills(f)
                         except asyncio.TimeoutError:
